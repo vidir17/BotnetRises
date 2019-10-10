@@ -69,7 +69,7 @@ class Client
 // (indexed on socket no.) sacrificing memory for speed.
 
 static std::map<int, Client*> clients; // Lookup table for per Client information
-static std::map<int, Server*> servers; // Lookup table for per Client information
+static std::map<int, Server*> servers; // Lookup table for per Server information
 
 // Open socket for specified port.
 //
@@ -129,6 +129,18 @@ int open_socket(int portno)
    }
 }
 
+void AddToServerList(string IP, string PORT){
+    
+
+    std::string address;
+
+    address = IP;
+    address += ":";
+    address += PORT;
+    //add server list  
+    
+}
+
 // Close a client's connection, remove it from the client list, and
 // tidy up select sockets afterwards.
 
@@ -164,6 +176,8 @@ void connectHere(string a, string b){
 
     server_address.sin_family = AF_INET;//specify family of address
     server_address.sin_addr.s_addr = inet_addr(a.c_str());//Address on next serve
+    
+    //PASSA AD THAD MA EKKI TENGJAST SEM CLIENT BARA SERVER TO SERVER
     server_address.sin_port = htons(stoi(b));//port
 
     int address_size = sizeof(server_address);
@@ -174,6 +188,8 @@ void connectHere(string a, string b){
         cout << "No connection established to server" << endl;
             }else{
         cout << "Connected to server" << endl;
+        AddToServerList(a, b);
+
     }
 }
 // Get name from client on the server
@@ -182,8 +198,8 @@ void clientCommandName(int clientSocket, fd_set *openSockets, int *maxfds,
 {
                
     std::vector<std::string> tokens;
-  std::string token;
-  std::stringstream stream(buffer);
+    std::string token;
+    std::stringstream stream(buffer);
   while(stream >> token){
       tokens.push_back(token);
     }
@@ -193,6 +209,8 @@ void clientCommandName(int clientSocket, fd_set *openSockets, int *maxfds,
 
 
 }
+
+
 // Process command from client on the server
 void clientCommand(int clientSocket, fd_set *openSockets, int *maxfds, 
                   char *buffer) 
@@ -214,7 +232,7 @@ void clientCommand(int clientSocket, fd_set *openSockets, int *maxfds,
      cout << "IP: " << tokens[1] << endl;
      cout << "PORT: " << tokens[2] << endl;
      //cout << "Name: " << servers[server->sock]->name << endl;
-
+    
      connectHere(tokens[1], tokens[2]);
 
      //cout << clients[clientSocket]->name << endl;
@@ -239,23 +257,23 @@ void clientCommand(int clientSocket, fd_set *openSockets, int *maxfds,
      for(auto const& names : clients)
      {
         msg += names.second->name + ",";
-
      }
      // Reducing the msg length by 1 loses the excess "," - which
      // granted is totally cheating.
+     cout << msg.c_str() << endl;
      send(clientSocket, msg.c_str(), msg.length()-1, 0);
 
   }
   else if(tokens[0].compare("LISTSERVERS") == 0){
       std::cout << "List of servers connected: " << std::endl;
      std::string msg;
-    send(clientSocket, "Servers:", 9, 0);
+     send(clientSocket, "Servers:", 9, 0);
      for(auto const& names : servers)
      {
-        send(clientSocket, "Servers:", 9, 0);
-        msg += names.second->name + ",";
+        //send(clientSocket, "Servers:", 9, 0);
+        msg += names.second->name; //laga
      }
-     send(clientSocket, msg.c_str(), msg.length(), 0);
+     send(clientSocket, msg.c_str(), msg.length()-1, 0);
   }
   // This is slightly fragile, since it's relying on the order
   // of evaluation of the if statement.
@@ -424,9 +442,7 @@ int main(int argc, char* argv[])
                
                // create a new server to store information.
                servers[serverSock] = new Server(serverSock);
-  
-               
-
+               //add
                // Decrement the number of sockets waiting to be dealt with
                n--;
                send(serverSock, "Add Name: ", 10, 0);
@@ -461,9 +477,9 @@ int main(int argc, char* argv[])
                       {
                           std::cout << buffer << std::endl;
                           
-
+                            //Add name here
                           while(clients[client->sock]->name == ""){
-
+                            //added name goes in the list
                           clientCommandName(clients[clientSock]->sock, &openSockets, &maxfds, 
                                         buffer);
                                         
