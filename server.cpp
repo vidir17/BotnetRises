@@ -37,11 +37,23 @@
 
 #define BACKLOG  5          // Allowed length of queue of waiting connections
 using namespace std;
-int counter = 0;
+int counter, counter2 = 0;
 static int NewestServerSocket;
 // Simple class for handling connections from clients.
 //
 // Client(int socket) - socket to send/receive traffic from client.
+class Message
+{
+    public:
+    int sock;
+    std::string GroupID;
+    std::vector<std::string> storedMessage;
+
+    Message(int socket) : sock(socket){}
+
+    ~Message(){}
+};
+
 class Server
 {
     public:
@@ -72,6 +84,7 @@ class Client
 
 static std::map<int, Client*> clients; // Lookup table for per Client information
 static std::map<int, Server*> servers; // Lookup table for per Server information
+static std::map<int, Message*> message; // Lookup table for per Message information
 
 // Open socket for specified port.
 //
@@ -131,36 +144,72 @@ int open_socket(int portno)
    }
 }
 
+
+
+
+
+
+
+
 void AddToServerList(int serverSocket, fd_set *openSockets, int *maxfds, 
                         string IP, string PORT){
     //readSockets = exceptSockets = openSockets;
     //for(auto const& pair : servers)
       //         {
                   
+    std::string address = "";
 
-    std::vector<std::string> tokens2;
+    //std::vector<std::string> tokens2;
+    
 
-
-    std::string address;
-    address = IP;
-    address += ":";
+    
+    
+    address += IP;
+    address += ",";
     address += PORT;
-    cout << "first" << endl;
-    tokens2.push_back(address);
-    cout << "tokens 2: " << tokens2[0] << endl;
-    //FIND SERVER SOCKET
-    cout << "tokens 2.5: " << serverSocket << endl;
-    servers[serverSocket] = new Server(serverSocket);
-    servers[serverSocket]->name = tokens2[0];
-    cout << "second" << endl;
-    
-     cout << "third" << endl;
-                  
-        //       }
+    address += ";";
 
     
+    //tokens2.push_back(address);
+   // cout << "tokens 0: " << tokens2[0] << endl;
+    //FIND SERVER SOCKET
+   // cout << serverSocket << " seeeeeeeeeeee" << endl;
+    servers[serverSocket] = new Server(serverSocket);
+    if (counter2 == 0){
+        servers[serverSocket]->name = "SERVERS,";
+        servers[serverSocket]->name += "P3_GROUP_91,";
+        servers[serverSocket]->name += address;
+        servers[serverSocket]->sock = serverSocket;
+        
+        counter2++;
+    }else{
+    servers[serverSocket]->name = "P3_GROUP_91,";
+    servers[serverSocket]->name += address;
+    servers[serverSocket]->sock = serverSocket;
+    cout << "Here am I " << endl;
+    cout << "ip: " << IP << endl;
+        cout << "port: " << PORT << endl;
+    if(IP != "85.220.73.127"){
+        
+        send(serverSocket, "hi", 2, 0);
+    }
+    }
 }
 
+void closeServer(int serverSocket, fd_set *openSockets, int *maxfds)
+{
+    string name_of = servers[serverSocket]->name;
+    servers.erase(serverSocket);
+    name_of[0] = '\0';
+    cout << name_of << " disconnected..." << endl;
+    cout << "online servers remaining " << servers.size() << endl;
+    if(*maxfds == serverSocket){
+        for(auto const& p: servers){
+            *maxfds = std::max(*maxfds, p.second->sock);
+        }
+    }
+    FD_CLR(serverSocket, openSockets);
+}
 // Close a client's connection, remove it from the client list, and
 // tidy up select sockets afterwards.
 
@@ -212,8 +261,10 @@ bool connectHere(fd_set *openSockets, int clientSocket, int *maxfds, string a, s
         cout << "No connection established to server" << endl;
             }else{
         cout << "Connected to server" << endl;
+        
         AddToServerList(socket_, openSockets, maxfds, a, b);
-
+        
+        
     }
     return 1;
 }
@@ -256,23 +307,31 @@ void clientCommand(int clientSocket, fd_set *openSockets, int *maxfds,
      cout << "CONNECT: " << tokens[0] << endl;
      cout << "IP: " << tokens[1] << endl;
      cout << "PORT: " << tokens[2] << endl;
+     
      //cout << "Name: " << servers[server->sock]->name << endl;
     
      if(connectHere(openSockets, clientSocket,maxfds, tokens[1], tokens[2]) == 0){
          send(clientSocket, "Connecting IP failed...you can try again", 38, 0);
-     }
-
+     }else{
+        
+         send(clientSocket, "Server connection made to ", 26, 0);
+         send(clientSocket, tokens[1].c_str(), tokens[1].size(), 0);
+         send(clientSocket, " ", 1, 0);
+         send(clientSocket, tokens[2].c_str(), tokens[2].size(), 0);
+    }
      //cout << clients[clientSocket]->name << endl;
      //cout << 
 
      
+//    serverC(tokens[1], tokens[2]);
+
   }
   else if(tokens[0].compare("LEAVE") == 0)
   {
       // Close the socket, and leave the socket handling
       // code to deal with tidying up clients etc. when
       // select() detects the OS has torn down the connection.
-      cout << "get out" << endl;
+      send(clientSocket, "get out!", 7, 0);
       closeClient(clientSocket, openSockets, maxfds);
     
   }
@@ -295,19 +354,38 @@ void clientCommand(int clientSocket, fd_set *openSockets, int *maxfds,
       std::cout << "List of servers connected: " << std::endl;
      std::string msg;
      send(clientSocket, "Servers:", 9, 0);
+     
      for(auto const& names : servers)
      {
-        
         //send(clientSocket, "Servers:", 9, 0);
-        msg += names.second->name + ","; //laga
+        msg += names.second->name; //laga
      }
      cout << "this is the LIST: \n" << msg.c_str() << endl;
      send(clientSocket, msg.c_str(), msg.length()-1, 0);
   }
+  //SENDMSG, GROUP ID
+  else if(tokens[0].compare("SENDMSG,") == 0)
+  {
+      cout << tokens[1] << endl;
+      
+     /* std::string msg;
+      for(auto i = tokens.begin()+2;i != tokens.end();i++) 
+      {
+          msg += *i + " ";
+      }
+
+      for(auto const& pair : clients)
+      {
+          send(pair.second->sock, msg.c_str(), msg.length(),0);
+      }*/
+  }
+
+
   // This is slightly fragile, since it's relying on the order
   // of evaluation of the if statement.
   else if((tokens[0].compare("MSG") == 0) && (tokens[1].compare("ALL") == 0))
   {
+      cout << "MSG all!!! " << endl;
       std::string msg;
       for(auto i = tokens.begin()+2;i != tokens.end();i++) 
       {
@@ -320,6 +398,21 @@ void clientCommand(int clientSocket, fd_set *openSockets, int *maxfds,
       }
   }
   else if(tokens[0].compare("MSG") == 0)
+  {
+      for(auto const& pair : clients)
+      {
+          if(pair.second->name.compare(tokens[1]) == 0)
+          {
+              std::string msg;
+              for(auto i = tokens.begin()+2;i != tokens.end();i++) 
+              {
+                  msg += *i + " ";
+              }
+              send(pair.second->sock, msg.c_str(), msg.length(),0);
+          }
+      }
+  }
+  else if(tokens[0].compare("GET MSG") == 0)
   {
       for(auto const& pair : clients)
       {
@@ -405,8 +498,8 @@ int main(int argc, char* argv[])
             maxfds = listenSock;
             
         }
-
-        AddToServerList(serverSock, &openSockets, &maxfds, "85.220.73.127", argv[1]);
+AddToServerList(NewestServerSocket, &openSockets, &maxfds, "85.220.73.127", argv[1]);// laga i current port
+        
     }
     
     
@@ -464,9 +557,11 @@ int main(int argc, char* argv[])
             {
                
                serverSock = accept(listenSock, (struct sockaddr *)&server, &serverLen);
+               cout << "INFO: " << listenSock << "\n" << (struct sockaddr *)&server << endl;
                printf("accept***\n");
                 // Add new server to the list of open sockets
                 FD_SET(serverSock, &openSockets);
+                cout << "server buffer: " << buffer << endl;
               
 
                // And update the maximum file descriptor
@@ -475,15 +570,44 @@ int main(int argc, char* argv[])
                // create a new server to store information.
                //servers[serverSock] = new Server(serverSock); ////KANNSKI HAFA?
                //add
-               AddToServerList(serverSock, &openSockets, &maxfds, argv[0], argv[1]);
+               
+               //AddToServerList(serverSock, &openSockets, &maxfds, argv[0], argv[1]);
                // Decrement the number of sockets waiting to be dealt with
                n--;
-               send(serverSock, "Add Name: ", 10, 0);
+               
+               send(serverSock, "", 10, 0);
+
                printf("Server connected to server: %d\n", serverSock);
             }
+            for(auto const& pair : servers)
+               {
+                  Server *server = pair.second;
+                  // recv() == 0 means client has closed connection
+                      if(recv(server->sock, buffer, sizeof(buffer), MSG_DONTWAIT) == 0)
+                      {
+                          cout << "this is the dog" << endl;
+                          printf("Server closed connection: %d", server->sock);
+                          close(server->sock);
+
+                          closeServer(server->sock, &openSockets, &maxfds);
+                          //send(server->sock, "bingobingo", 10, 0);
+                          break;
+                          
+
+                      }else{
+                         // cout << "This is the cat" << endl;
+                      //    cout << "HEEEEEEE" << endl;
+                      //std::cout << "Buffer: " << buffer << std::endl;
+                      //break;
+                      }
+               
+               
+               }
+            
             // Now check for commands from clients
             while(n-- > 0)
             {
+                
                for(auto const& pair : clients)
                {
                   Client *client = pair.second;
@@ -508,7 +632,7 @@ int main(int argc, char* argv[])
                       // only triggers if there is something on the socket for us.
                       else
                       {
-                          std::cout << buffer << std::endl;
+                          std::cout << buffer << std::endl; //server cout
                           
                             //Add name here
                           while(clients[client->sock]->name == ""){
@@ -527,7 +651,10 @@ int main(int argc, char* argv[])
                                         }
                                         if(counter == 0){
                                           counter++;
-                            }
+                                        }
+                                        if(counter == 1){
+                                          counter--;
+                                        }
                       }
                   }
                }
