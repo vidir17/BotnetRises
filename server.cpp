@@ -45,11 +45,10 @@ static int NewestServerSocket;
 class Message
 {
     public:
-    int sock;
     std::string GroupID;
     std::vector<std::string> storedMessage;
 
-    Message(int socket) : sock(socket){}
+    Message(string GID) : GroupID(GID){}
 
     ~Message(){}
 };
@@ -84,7 +83,7 @@ class Client
 
 static std::map<int, Client*> clients; // Lookup table for per Client information
 static std::map<int, Server*> servers; // Lookup table for per Server information
-static std::map<int, Message*> message; // Lookup table for per Message information
+static std::map<string, Message*> message; // Lookup table for per Message information
 
 // Open socket for specified port.
 //
@@ -366,18 +365,76 @@ void clientCommand(int clientSocket, fd_set *openSockets, int *maxfds,
   //SENDMSG, GROUP ID
   else if(tokens[0].compare("SENDMSG,") == 0)
   {
+      std::string msg;
+      string GroupID = tokens[1];
       cout << tokens[1] << endl;
-      
-     /* std::string msg;
-      for(auto i = tokens.begin()+2;i != tokens.end();i++) 
-      {
-          msg += *i + " ";
+      message[GroupID] = new Message(GroupID);
+      message[GroupID]->GroupID = tokens[1];
+      for(unsigned int i = 2; i < tokens.size(); i++){
+        message[GroupID]->storedMessage.push_back(tokens[i]);
       }
+      
+      cout << "THIS IS THE SIZE OF TOKENS: " << tokens.size();
 
-      for(auto const& pair : clients)
+        ///////////TEST/////////////
+      cout << "Group ID: " << message[GroupID]->GroupID << "\n" << "The test: ";
+       for(unsigned int i = 0; i < tokens.size()-2; i++){
+      cout <<  message[GroupID]->storedMessage[i];
+
+      }
+  }
+  else if(tokens[0].compare("GETMSG,") == 0) //Hægt að bæta, ef það er til group id
+  {
+      std::string msg;
+      //get by group id
+      for(auto const & pair : message)
       {
-          send(pair.second->sock, msg.c_str(), msg.length(),0);
-      }*/
+          //if(pair.second->GroupID.compare(tokens[1])){
+            //  msg += 
+          //
+
+
+         if(pair.second->GroupID == tokens[1]){
+
+            for (std::vector<string>::iterator it = pair.second->storedMessage.begin() ; it != pair.second->storedMessage.end(); ++it)
+         {
+             std::cout << "1: " << *it << endl;
+         } 
+                
+                //std::cout << ' ' << *it;
+                      //  std::cout << '\n';
+
+
+
+
+
+
+
+
+          //   for(unsigned i = 2; i < 5; i++){
+             //cout << "abcd" << endl;
+             
+            //    cout << "here: " << pair.second->storedMessage.rbegin() << endl;
+            // }
+             //msg += message[tokens[1]]->storedMessage;
+     //   for(unsigned int i = 2; i < tokens.size(); i++){
+       //     message[GroupID]->storedMessage.push_back(tokens[i]);
+      }
+        // cout << "FOR LOOP GROUP ID" << endl;
+         //}
+         //loop though vector
+         //for(unsigned int i = 0; i < message[clientsocket]){
+         //msg += message[clientSocket]->storedMessage[i]
+         //}
+      }
+      //send(clientSocket, msg)
+
+
+      //when group id found
+
+      //print all messages with groupid in front
+
+      
   }
 
 
