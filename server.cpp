@@ -398,8 +398,9 @@ void clientCommand(int clientSocket, fd_set *openSockets, int *maxfds,
 
             for (std::vector<string>::iterator it = pair.second->storedMessage.begin() ; it != pair.second->storedMessage.end(); ++it)
          {
-             std::cout << "1: " << *it << endl;
+             msg += *it + " ";
          } 
+         send(clientSocket, msg.c_str(), msg.length()-1, 0);
                 
                 //std::cout << ' ' << *it;
                       //  std::cout << '\n';
