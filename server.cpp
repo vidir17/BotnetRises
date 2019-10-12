@@ -367,9 +367,25 @@ void clientCommand(int clientSocket, fd_set *openSockets, int *maxfds,
   {
       std::string msg;
       string GroupID = tokens[1];
+      int checker = 1;
+      for(auto const & pair : message){
+            if(pair.second->GroupID == tokens[2]){
+                checker--;
+                message[tokens[2]]->storedMessage.push_back(tokens[1]);
+                message[tokens[2]]->storedMessage.push_back(": ");
+            for(unsigned int i = 3; i < tokens.size(); i++){
+                message[tokens[2]]->storedMessage.push_back(tokens[i]);
+            }
+            message[GroupID] = new Message(GroupID); // create id for this new guy
+            message[GroupID]->GroupID = GroupID;
+          }
+      }
+      if(checker == 1){
       cout << tokens[1] << endl;
       message[GroupID] = new Message(GroupID);
       message[GroupID]->GroupID = tokens[1];
+      message[GroupID]->storedMessage.push_back(tokens[1]);
+      message[GroupID]->storedMessage.push_back(": ");
       for(unsigned int i = 2; i < tokens.size(); i++){
         message[GroupID]->storedMessage.push_back(tokens[i]);
       }
@@ -382,6 +398,10 @@ void clientCommand(int clientSocket, fd_set *openSockets, int *maxfds,
       cout <<  message[GroupID]->storedMessage[i];
 
       }
+    }
+    checker++;
+
+  
   }
   else if(tokens[0].compare("GETMSG,") == 0) //Hægt að bæta, ef það er til group id
   {
@@ -399,7 +419,8 @@ void clientCommand(int clientSocket, fd_set *openSockets, int *maxfds,
             for (std::vector<string>::iterator it = pair.second->storedMessage.begin() ; it != pair.second->storedMessage.end(); ++it)
          {
              msg += *it + " ";
-         } 
+         }
+         msg += "\n";
          send(clientSocket, msg.c_str(), msg.length()-1, 0);
                 
                 //std::cout << ' ' << *it;
