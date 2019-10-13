@@ -40,6 +40,7 @@ using namespace std;
 int counter, counter2 = 0;
 bool firstStringInListservers = true;
 static int NewestServerSocket;
+static string storeThis = "";
 // Simple class for handling connections from clients.
 //
 // Client(int socket) - socket to send/receive traffic from client.
@@ -147,19 +148,10 @@ int open_socket(int portno)
 }
 
 
-
-
-
-
-
-
-void AddToServerList(int serverSocket, fd_set *openSockets, int *maxfds, 
-                        string IP, string PORT){
-    //readSockets = exceptSockets = openSockets;
-    //for(auto const& pair : servers)
-      //         {
-                  
-    std::string address = "";
+void AddInfoFromServer(int serverSocket, fd_set *openSockets, int *maxfds, 
+                        string IP, string PORT)
+{
+      std::string address = "";
 
     //std::vector<std::string> tokens2;
     
@@ -167,50 +159,72 @@ void AddToServerList(int serverSocket, fd_set *openSockets, int *maxfds,
     address += ",";
     address += PORT;
     address += ";";
+     servers[serverSocket] = new Server(serverSocket);
 
+     //servers[serverSocket]->name += storeThis;
+     servers[serverSocket]->name += address;
+    servers[serverSocket]->sock = serverSocket;
+
+}
+
+void serverCommand(int serverSocket, fd_set *openSockets, int *maxfds, char *buffer)
+{
+  std::vector<std::string> tokens;
+  std::string token;
+
+  // Split command from client into tokens for parsing
+  std::stringstream stream(buffer);
+
+  while(stream >> token)
+      tokens.push_back(token);
+
+if(tokens[0].c_str()[0] == 'L' && tokens[0].c_str()[11] == ','){
+
+    //send(serverSocket, buffer , 24, 0);
+    //
+    AddInfoFromServer(serverSocket, openSockets, maxfds, tokens[0].c_str(), "0000");
+
+
+  }
+
+
+
+
+}
+
+
+void AddToServerList(int serverSocket, fd_set *openSockets, int *maxfds, 
+                        string IP, string PORT){
+    std::string address = "";
     
-    //tokens2.push_back(address);
-   // cout << "tokens 0: " << tokens2[0] << endl;
-    //FIND SERVER SOCKET
-   // cout << serverSocket << " seeeeeeeeeeee" << endl;
+    address += IP;
+    address += ",";
+    address += PORT;
+    address += ";";
     servers[serverSocket] = new Server(serverSocket);
     if (counter2 == 0){
-        Qservers[serverSocket]->BeginningString = "SERVERS,";//DELETE
-        servers[serverSocket]->name = "P3_GROUP_91,";
+        servers[serverSocket]->BeginningString = "SERVERS,";
+        servers[serverSocket]->name = "P3_GROUP_91,";//FOR HOST
         servers[serverSocket]->name += address;
         servers[serverSocket]->sock = serverSocket;
-        
         counter2++;
     }else{
-    servers[serverSocket]->name = "P3_GROUP_91,";
-    servers[serverSocket]->name += address;
-    servers[serverSocket]->sock = serverSocket;
-    cout << "Here am I " << endl;
-    cout << "ip: " << IP << endl;
-        cout << "port: " << PORT << endl;
-
-
-                    ////////////LISTSERVERS/////////////////////
-    
                  std::cout << "List of servers connected: " << std::endl;
                 std::string msg;
-
-                
                 for(auto const& names : servers)
                  {
-                    //send(clientSocket, "Servers:", 9, 0);
-                msg += names.second->name; //laga
+                msg += names.second->name;
                 break;
                 }
                  cout << "this is the LIST: \n" << msg.c_str() << endl;
-                    send(serverSocket, msg.c_str(), msg.length()-1, 0);
-
-
-
-    if(IP != "85.220.73.127"){
-        //send(serverSocket, "hi", 2, 0);
-    }
-    //send(serverSocket, "hi", 2, 0);
+                 string sendMessage = "LISTSERVERS,P3_GROUP_91";
+                 char buff[23];
+                 std::copy(sendMessage.begin(), sendMessage.end(), buff);
+                 send(serverSocket, sendMessage.c_str(), sendMessage.size(), 0);//msg.c_str(), msg.length()-1, 0);
+                 serverCommand(serverSocket, openSockets, maxfds, buff);
+                 //servers[serverSocket]->name = sendMessage;
+        servers[serverSocket]->name += address;
+        servers[serverSocket]->sock = serverSocket;
     }
 }
 
@@ -228,8 +242,6 @@ void closeServer(int serverSocket, fd_set *openSockets, int *maxfds)
     }
     FD_CLR(serverSocket, openSockets);
 }
-// Close a client's connection, remove it from the client list, and
-// tidy up select sockets afterwards.
 
 void closeClient(int clientSocket, fd_set *openSockets, int *maxfds)
 {
@@ -279,8 +291,10 @@ bool connectHere(fd_set *openSockets, int clientSocket, int *maxfds, string a, s
         cout << "No connection established to server" << endl;
             }else{
         cout << "Connected to server" << endl;
-        
-        AddToServerList(socket_, openSockets, maxfds, a, b);
+         char buffer[1025];
+        if(recv(socket_, buffer, sizeof(buffer), MSG_DONTWAIT) != 0){//
+        }
+        AddInfoFromServer(socket_, openSockets, maxfds, a, b);
     }
     return 1;
 }
@@ -319,7 +333,10 @@ void clientCommand(int clientSocket, fd_set *openSockets, int *maxfds,
   if((tokens[0].compare("CONNECT") == 0) && (tokens.size() == 3))
   {
     
-     
+     cout << "Here you will connect" << endl;
+     cout << "CONNECT: " << tokens[0] << endl;
+     cout << "IP: " << tokens[1] << endl;
+     cout << "PORT: " << tokens[2] << endl;
      
      //cout << "Name: " << servers[server->sock]->name << endl;
     
@@ -362,21 +379,27 @@ void clientCommand(int clientSocket, fd_set *openSockets, int *maxfds,
      cout << msg.c_str() << endl;
      send(clientSocket, msg.c_str(), msg.length()-1, 0);
 
+  }else if(tokens[0].c_str()[0] == 'L' && tokens[0].c_str()[11] == ','){
+      
+      //Here I was trying to retrieve Group ID from other servers to add
+      //didn't get it done in time
+
   }
-  else if(tokens[0].compare("LISTSERVERS") == 0){
+
+  //Gets the list of servers
+  else if(tokens[0].compare("SERVERS") == 0 || tokens[0].compare("LISTSERVERS") == 0){
       std::cout << "List of servers connected: " << std::endl;
      std::string msg;
      send(clientSocket, "Servers:", 9, 0);
-     //send(server->sock, "Servers:", 9, 0);
      for(auto const& names : servers)
      {
         if(firstStringInListservers){
             msg += "SERVERS,";
             firstStringInListservers = false;
         }
-        //send(clientSocket, "Servers:", 9, 0);
-        msg += names.second->name; //laga
+        msg += names.second->name; 
      }
+     firstStringInListservers = true;
      cout << "this is the LIST: \n" << msg.c_str() << endl;
      send(clientSocket, msg.c_str(), msg.length()-1, 0);
   }
@@ -427,11 +450,7 @@ void clientCommand(int clientSocket, fd_set *openSockets, int *maxfds,
       //get by group id
       for(auto const & pair : message)
       {
-          //if(pair.second->GroupID.compare(tokens[1])){
-            //  msg += 
-          //
-
-
+          
          if(pair.second->GroupID == tokens[1]){
 
             for (std::vector<string>::iterator it = pair.second->storedMessage.begin() ; it != pair.second->storedMessage.end(); ++it)
@@ -441,40 +460,8 @@ void clientCommand(int clientSocket, fd_set *openSockets, int *maxfds,
          msg += "\n";
          send(clientSocket, msg.c_str(), msg.length()-1, 0);
                 
-                //std::cout << ' ' << *it;
-                      //  std::cout << '\n';
-
-
-
-
-
-
-
-
-          //   for(unsigned i = 2; i < 5; i++){
-             //cout << "abcd" << endl;
-             
-            //    cout << "here: " << pair.second->storedMessage.rbegin() << endl;
-            // }
-             //msg += message[tokens[1]]->storedMessage;
-     //   for(unsigned int i = 2; i < tokens.size(); i++){
-       //     message[GroupID]->storedMessage.push_back(tokens[i]);
       }
-        // cout << "FOR LOOP GROUP ID" << endl;
-         //}
-         //loop though vector
-         //for(unsigned int i = 0; i < message[clientsocket]){
-         //msg += message[clientSocket]->storedMessage[i]
-         //}
       }
-      //send(clientSocket, msg)
-
-
-      //when group id found
-
-      //print all messages with groupid in front
-
-      
   }
 
 
@@ -554,7 +541,7 @@ int main(int argc, char* argv[])
     char buffer[1025];              // buffer for reading from clients
     if(argc != 2)
     {
-        printf("Usage: chat_server <ip port>\n");
+        printf("Usage: <server> <port>\n");
         exit(0);
     }
     
@@ -600,14 +587,9 @@ int main(int argc, char* argv[])
         struct sockaddr_in* pV4Addr = (struct sockaddr_in*)&server;
         struct in_addr ipAddr = pV4Addr->sin_addr;
                               printf("IP address is: %s\n", inet_ntoa(ipAddr));
-AddToServerList(NewestServerSocket, &openSockets, &maxfds, "85.220.73.127", argv[1]);// laga i current port
+        AddToServerList(NewestServerSocket, &openSockets, &maxfds, "127.0.0.1", argv[1]);// laga i current port
         
     }
-    
-    
-    
-
-
     finished = false;
 
     while(!finished)
@@ -619,7 +601,6 @@ AddToServerList(NewestServerSocket, &openSockets, &maxfds, "85.220.73.127", argv
 
         // Look at sockets and see which ones have something to be read()
         int n = select(maxfds + 1, &readSockets, NULL, &exceptSockets, NULL);
-        //  int n = select(maxfds + 1, &readSockets, NULL, &exceptSockets, NULL);
 
         if(n < 0)
         {
@@ -630,12 +611,7 @@ AddToServerList(NewestServerSocket, &openSockets, &maxfds, "85.220.73.127", argv
         {
             Client *client;
             Server *server;
-            //int clientSock = accept(listenSock, (struct sockaddr *)&client);
-                     //              &clientLen);
-            //send(clientSock2, "13", 2,0);            
-            //cin >> listenSockClient;
-            // First, accept  any new connections to the server on the listening socket
-            //cout << "Read sockets: " << &readSocketsClient << endl;
+            //listen for the client sockets
             if(FD_ISSET(listenSockClient, &readSockets))
             {
             
@@ -656,53 +632,24 @@ AddToServerList(NewestServerSocket, &openSockets, &maxfds, "85.220.73.127", argv
                send(clientSock, "Add Name: ", 10, 0);
                printf("Client connected on server: %d\n", clientSock);
             }
+            //listen for the server sockets
             if(FD_ISSET(listenSock, &readSockets))
             {
-               
-              // serverSock = bind(listenSock, (struct sockaddr *)&server, serverLen);//accept(listenSock, (struct sockaddr *)&server, &serverLen);
                serverSock = accept(listenSock, (struct sockaddr *)&server, &serverLen);
-               //struct sockaddr_in* pV4Addr = (struct sockaddr_in*)&server;
-               //struct in_addr ipAddr = pV4Addr->sin_addr;
-                //              printf("IP address is: %s\n", inet_ntoa(ipAddr));
-              // int itisPort = pV4Addr->sin_port;        
-
-               
-               //struct in_addr ipPort = pV4Addr->sin_port;
-               
-
-              // char str[INET_ADDRSTRLEN];
-              // inet_ntop( AF_INET, &ipAddr, str, INET_ADDRSTRLEN );
-              // printf("IP address is: %s\n", inet_ntoa(ipAddr));
-              // printf("port is: %d\n", (int) ntohs(itisPort));
-
-
-
+               struct sockaddr_in* pV4Addr = (struct sockaddr_in*)&server;
+               struct in_addr ipAddr = pV4Addr->sin_addr;
+              
                cout << "INFO: " << endl;
                printf("accept***\n");
-                // Add new server to the list of open sockets
                 
-
-                //send(serverSock, "testing", 7, 0);
-                //cout << "server buffer: " << buffer << endl;
-              
-
-               // And update the maximum file descriptor
                maxfds = std::max(maxfds, serverSock) ;
-               //AddToServerList(serverSock, &openSockets, &maxfds, IP, PORT);
-               // create a new server to store information.
-               //servers[serverSock] = new Server(serverSock); ////KANNSKI HAFA?
-               //add
                
-               //AddToServerList(serverSock, &openSockets, &maxfds, argv[0], argv[1]);
-               // Decrement the number of sockets waiting to be dealt with
                n--;
-               
-               //send(serverSock, "", 10, 0);
-
+    
                printf("Server connected to server: %d\n", serverSock);
-              if(recv(serverSock, buffer, sizeof(buffer), MSG_DONTWAIT) != 0){
-
-                   AddToServerList(serverSock, &openSockets, &maxfds, buffer, "");
+              if(recv(listenSock, buffer, sizeof(buffer), MSG_DONTWAIT) != 0){
+                   
+                   AddInfoFromServer(serverSock, &openSockets, &maxfds, inet_ntoa(ipAddr), "");
                }
                
               FD_SET(serverSock, &openSockets);
@@ -721,15 +668,7 @@ AddToServerList(NewestServerSocket, &openSockets, &maxfds, "85.220.73.127", argv
                           //send(server->sock, "bingobingo", 10, 0);
                           break;
                           
-
-                      }else{
-                         // cout << "This is the cat" << endl;
-                      //    cout << "HEEEEEEE" << endl;
-                      //std::cout << "Buffer: " << buffer << std::endl;
-                      //break;
-                      }
-               
-               
+                      }              
                }
             
             // Now check for commands from clients
@@ -760,17 +699,16 @@ AddToServerList(NewestServerSocket, &openSockets, &maxfds, "85.220.73.127", argv
                       // only triggers if there is something on the socket for us.
                       else
                       {
-                          std::cout << buffer << std::endl; //server cout
-                          
+                         
                             //Add name here
                           while(clients[client->sock]->name == ""){
-                            //added name goes in the list
+                            //added name goes in the list  
                           clientCommandName(clients[clientSock]->sock, &openSockets, &maxfds, 
                                         buffer);
                                         
 
                       }
-
+                        //All other client commands
                           clientCommand(client->sock, &openSockets, &maxfds, 
                                         buffer);
                                         
