@@ -38,6 +38,7 @@
 #define BACKLOG  5          // Allowed length of queue of waiting connections
 using namespace std;
 int counter, counter2 = 0;
+bool firstStringInListservers = true;
 static int NewestServerSocket;
 // Simple class for handling connections from clients.
 //
@@ -57,6 +58,7 @@ class Server
 {
     public:
     int sock;
+    std::string BeginningString;
     std::string name; //server name
 
     Server(int socket) : sock(socket){}
@@ -139,6 +141,7 @@ int open_socket(int portno)
    }
    else
    {
+      
       return(sock);
    }
 }
@@ -160,9 +163,6 @@ void AddToServerList(int serverSocket, fd_set *openSockets, int *maxfds,
 
     //std::vector<std::string> tokens2;
     
-
-    
-    
     address += IP;
     address += ",";
     address += PORT;
@@ -175,8 +175,8 @@ void AddToServerList(int serverSocket, fd_set *openSockets, int *maxfds,
    // cout << serverSocket << " seeeeeeeeeeee" << endl;
     servers[serverSocket] = new Server(serverSocket);
     if (counter2 == 0){
-        servers[serverSocket]->name = "SERVERS,";
-        servers[serverSocket]->name += "P3_GROUP_91,";
+        Qservers[serverSocket]->BeginningString = "SERVERS,";//DELETE
+        servers[serverSocket]->name = "P3_GROUP_91,";
         servers[serverSocket]->name += address;
         servers[serverSocket]->sock = serverSocket;
         
@@ -188,10 +188,29 @@ void AddToServerList(int serverSocket, fd_set *openSockets, int *maxfds,
     cout << "Here am I " << endl;
     cout << "ip: " << IP << endl;
         cout << "port: " << PORT << endl;
+
+
+                    ////////////LISTSERVERS/////////////////////
+    
+                 std::cout << "List of servers connected: " << std::endl;
+                std::string msg;
+
+                
+                for(auto const& names : servers)
+                 {
+                    //send(clientSocket, "Servers:", 9, 0);
+                msg += names.second->name; //laga
+                break;
+                }
+                 cout << "this is the LIST: \n" << msg.c_str() << endl;
+                    send(serverSocket, msg.c_str(), msg.length()-1, 0);
+
+
+
     if(IP != "85.220.73.127"){
-        
-        send(serverSocket, "hi", 2, 0);
+        //send(serverSocket, "hi", 2, 0);
     }
+    //send(serverSocket, "hi", 2, 0);
     }
 }
 
@@ -239,7 +258,7 @@ void closeClient(int clientSocket, fd_set *openSockets, int *maxfds)
 }
 bool connectHere(fd_set *openSockets, int clientSocket, int *maxfds, string a, string b){//EYDA UTy
     int socket_ = socket(AF_INET, SOCK_STREAM, 0); //IPv4 Internet Protocol & SOCK_STREAM for stream of data
-
+    
     struct sockaddr_in server_address;
     server_address.sin_family = AF_INET;//specify family of address
     server_address.sin_addr.s_addr = inet_addr(a.c_str());//Address on next serve
@@ -262,8 +281,6 @@ bool connectHere(fd_set *openSockets, int clientSocket, int *maxfds, string a, s
         cout << "Connected to server" << endl;
         
         AddToServerList(socket_, openSockets, maxfds, a, b);
-        
-        
     }
     return 1;
 }
@@ -302,10 +319,7 @@ void clientCommand(int clientSocket, fd_set *openSockets, int *maxfds,
   if((tokens[0].compare("CONNECT") == 0) && (tokens.size() == 3))
   {
     
-     cout << "Here you will connect" << endl;
-     cout << "CONNECT: " << tokens[0] << endl;
-     cout << "IP: " << tokens[1] << endl;
-     cout << "PORT: " << tokens[2] << endl;
+     
      
      //cout << "Name: " << servers[server->sock]->name << endl;
     
@@ -353,9 +367,13 @@ void clientCommand(int clientSocket, fd_set *openSockets, int *maxfds,
       std::cout << "List of servers connected: " << std::endl;
      std::string msg;
      send(clientSocket, "Servers:", 9, 0);
-     
+     //send(server->sock, "Servers:", 9, 0);
      for(auto const& names : servers)
      {
+        if(firstStringInListservers){
+            msg += "SERVERS,";
+            firstStringInListservers = false;
+        }
         //send(clientSocket, "Servers:", 9, 0);
         msg += names.second->name; //laga
      }
@@ -542,6 +560,7 @@ int main(int argc, char* argv[])
     
 
     //Setup client sock for server to listen to, find next available port
+    
     listenSockClient = open_socket(atoi(argv[1]) + 1);
     NewestServerSocket = listenSockClient;
     printf("Listening for clients on port: %d\n", atoi(argv[1]) + 1);
@@ -577,6 +596,10 @@ int main(int argc, char* argv[])
             maxfds = listenSock;
             
         }
+        Server *server;
+        struct sockaddr_in* pV4Addr = (struct sockaddr_in*)&server;
+        struct in_addr ipAddr = pV4Addr->sin_addr;
+                              printf("IP address is: %s\n", inet_ntoa(ipAddr));
 AddToServerList(NewestServerSocket, &openSockets, &maxfds, "85.220.73.127", argv[1]);// laga i current port
         
     }
@@ -618,6 +641,7 @@ AddToServerList(NewestServerSocket, &openSockets, &maxfds, "85.220.73.127", argv
             
                clientSock = accept(listenSockClient, (struct sockaddr *)&client,
                                   &clientLen);
+               
                printf("accept***\n");
                 // Add new client to the list of open sockets
                 FD_SET(clientSock, &openSockets);
@@ -635,17 +659,36 @@ AddToServerList(NewestServerSocket, &openSockets, &maxfds, "85.220.73.127", argv
             if(FD_ISSET(listenSock, &readSockets))
             {
                
+              // serverSock = bind(listenSock, (struct sockaddr *)&server, serverLen);//accept(listenSock, (struct sockaddr *)&server, &serverLen);
                serverSock = accept(listenSock, (struct sockaddr *)&server, &serverLen);
-               cout << "INFO: " << listenSock << "\n" << (struct sockaddr *)&server << endl;
+               //struct sockaddr_in* pV4Addr = (struct sockaddr_in*)&server;
+               //struct in_addr ipAddr = pV4Addr->sin_addr;
+                //              printf("IP address is: %s\n", inet_ntoa(ipAddr));
+              // int itisPort = pV4Addr->sin_port;        
+
+               
+               //struct in_addr ipPort = pV4Addr->sin_port;
+               
+
+              // char str[INET_ADDRSTRLEN];
+              // inet_ntop( AF_INET, &ipAddr, str, INET_ADDRSTRLEN );
+              // printf("IP address is: %s\n", inet_ntoa(ipAddr));
+              // printf("port is: %d\n", (int) ntohs(itisPort));
+
+
+
+               cout << "INFO: " << endl;
                printf("accept***\n");
                 // Add new server to the list of open sockets
-                FD_SET(serverSock, &openSockets);
-                cout << "server buffer: " << buffer << endl;
+                
+
+                //send(serverSock, "testing", 7, 0);
+                //cout << "server buffer: " << buffer << endl;
               
 
                // And update the maximum file descriptor
                maxfds = std::max(maxfds, serverSock) ;
-               
+               //AddToServerList(serverSock, &openSockets, &maxfds, IP, PORT);
                // create a new server to store information.
                //servers[serverSock] = new Server(serverSock); ////KANNSKI HAFA?
                //add
@@ -654,9 +697,15 @@ AddToServerList(NewestServerSocket, &openSockets, &maxfds, "85.220.73.127", argv
                // Decrement the number of sockets waiting to be dealt with
                n--;
                
-               send(serverSock, "", 10, 0);
+               //send(serverSock, "", 10, 0);
 
                printf("Server connected to server: %d\n", serverSock);
+              if(recv(serverSock, buffer, sizeof(buffer), MSG_DONTWAIT) != 0){
+
+                   AddToServerList(serverSock, &openSockets, &maxfds, buffer, "");
+               }
+               
+              FD_SET(serverSock, &openSockets);
             }
             for(auto const& pair : servers)
                {
@@ -724,6 +773,7 @@ AddToServerList(NewestServerSocket, &openSockets, &maxfds, "85.220.73.127", argv
 
                           clientCommand(client->sock, &openSockets, &maxfds, 
                                         buffer);
+                                        
                                         if(clients.size() == 0){
                                             close(client->sock);
                                             break;
